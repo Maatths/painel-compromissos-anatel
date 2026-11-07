@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compromissos Telefônica Vivo</title>
+<meta name="description" content="Painel com os compromissos regulatórios da Telefônica Vivo acompanhados pela Anatel (dados abertos): editais, prazos e status por município.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ====== Tokens — paleta Vivo (mesma do painel corporativo original) ====== */
+  :root {
+    color-scheme: light;
+    --page: #f7f3fa; --surface: #ffffff; --surface-2: #fbf8fd;
+    --text: #2b0a40; --text-2: #4f3a61; --muted: #86759a;
+    --heading: #2b0a40; --link: #660099;
+    --grid: #f1eaf6; --axis: #d9c8e6; --border: #e9def2;
+    --shadow: 0 1px 2px rgba(102, 0, 153, .06), 0 4px 16px rgba(102, 0, 153, .07);
+    --series-1: #660099; --dim: #e2d5ec; --band: rgba(102, 0, 153, .07); --chip-bg: #f3e9f9;
+    --seq: #f3e9f9, #d6b4ec, #a64dd8, #7a1fb0, #4a0070;
+    /* status em tons Vivo, sempre com ícone + rótulo: roxo = atendido, lilás = em apuração, rosa = a vencer, magenta = vencido */
+    --st-ok: #660099; --st-info: #b07cd6; --st-warn: #eb3c7d; --st-crit: #a3004f; --st-crit2: #6e0035; --st-gray: #9e8fb0;
+    --st-ok-bg: #efe3f7; --st-info-bg: #f5edfb; --st-warn-bg: #fde8f0; --st-crit-bg: #f8dde9; --st-gray-bg: #eee8f3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #1a0627; --surface: #2b0a40; --surface-2: #34104c; --text: #f7f0fb; --text-2: #dcc9ea; --muted: #b59ccb;
+      --heading: #ffffff; --link: #d6b4ec; --grid: #3d1757; --axis: #56287a; --border: #43195f;
+      --shadow: 0 1px 6px rgba(0, 0, 0, .4); --series-1: #c48ae8; --dim: #4a2266; --band: rgba(214, 180, 236, .1); --chip-bg: #43195f;
+      --st-ok: #c48ae8; --st-info: #8f6bb0; --st-warn: #ff6fa5; --st-crit: #ff3d7f; --st-crit2: #ff8ab3; --st-gray: #8a7a9c;
+      --st-ok-bg: #3d1757; --st-info-bg: #33184a; --st-warn-bg: #4a1430; --st-crit-bg: #521029; --st-gray-bg: #362a44;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #1a0627; --surface: #2b0a40; --surface-2: #34104c; --text: #f7f0fb; --text-2: #dcc9ea; --muted: #b59ccb;
+    --heading: #ffffff; --link: #d6b4ec; --grid: #3d1757; --axis: #56287a; --border: #43195f;
+    --shadow: 0 1px 6px rgba(0, 0, 0, .4); --series-1: #c48ae8; --dim: #4a2266; --band: rgba(214, 180, 236, .1); --chip-bg: #43195f;
+    --st-ok: #c48ae8; --st-info: #8f6bb0; --st-warn: #ff6fa5; --st-crit: #ff3d7f; --st-crit2: #ff8ab3; --st-gray: #8a7a9c;
+    --st-ok-bg: #3d1757; --st-info-bg: #33184a; --st-warn-bg: #4a1430; --st-crit-bg: #521029; --st-gray-bg: #362a44;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--page); color: var(--text); line-height: 1.5; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+  button, select, input { font: inherit; color: inherit; }
+
+  /* Cabeçalho em degradê roxo, como no painel original */
+  header { background: linear-gradient(100deg, #4a0070 0%, #660099 55%, #7e1fb3 100%); color: #fff; padding: 16px 0 26px; position: relative; z-index: 21; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; font-size: 14px; }
+  .top a { color: #fff; opacity: .9; text-decoration: none; font-weight: 600; }
+  .top a:hover { opacity: 1; text-decoration: underline; }
+  .pill-btn { background: transparent; border: 1px solid var(--link); border-radius: 100em; padding: 6px 16px; cursor: pointer; color: var(--link); font-weight: 600; font-size: 14px; }
+  .pill-btn:hover { background: var(--band); }
+  header .pill-btn { border-color: rgba(255, 255, 255, .5); color: #fff; background: rgba(255, 255, 255, .1); }
+  header .pill-btn:hover { background: rgba(255, 255, 255, .2); }
+  .tag-proj { display: inline-block; font-size: 11.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #fff; opacity: .85; margin-bottom: 6px; }
+  h1 { font-size: clamp(24px, 3.4vw, 34px); font-weight: 800; color: #fff; letter-spacing: -.02em; }
+  .sub { color: #fff; opacity: .88; font-size: 15px; margin-top: 4px; max-width: 900px; }
+
+  .filters { position: sticky; top: 0; z-index: 20; background: var(--page); padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .filters .wrap { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+  .f { display: flex; flex-direction: column; gap: 4px; min-width: 130px; flex: 1 1 130px; }
+  .f.search { flex: 2 1 200px; }
+  .f label { font-size: 13px; color: var(--text); font-weight: 600; }
+  .f select, .f input { background: var(--surface); border: 1px solid var(--axis); border-radius: 9px; height: 38px; padding: 0 10px; width: 100%; }
+  .f select:focus, .f input:focus { outline: 2px solid #eb3c7d; outline-offset: 1px; }
+  .clear { background: transparent; border: 1px solid var(--link); border-radius: 100em; height: 38px; padding: 0 18px; cursor: pointer; color: var(--link); font-weight: 600; }
+  .clear:hover { background: var(--band); }
+
+  main { padding: 20px 0 40px; }
+  .headline { font-size: clamp(17px, 2vw, 20px); font-weight: 600; margin-bottom: 16px; max-width: 980px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 14px; }
+  .tile, .card { background: var(--surface); border-radius: 8px; box-shadow: var(--shadow); min-width: 0; }
+  .tile { padding: 14px 16px; border-top: 4px solid var(--series-1); }
+  .tile.ok { border-top-color: var(--st-ok); } .tile.warn { border-top-color: var(--st-warn); } .tile.crit { border-top-color: var(--st-crit); } .tile.info { border-top-color: var(--st-info); }
+  .tile .lbl { font-size: 13px; font-weight: 600; color: var(--text-2); display: flex; gap: 6px; align-items: center; }
+  .tile .val { font-size: 28px; font-weight: 700; color: var(--heading); margin-top: 2px; }
+  .tile .note { font-size: 12.5px; color: var(--muted); }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .card { padding: 16px 18px 18px; }
+  .card.full { grid-column: 1 / -1; }
+  .card-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 12px; }
+  .card h2 { font-size: 16px; font-weight: 700; color: var(--heading); }
+  .card .desc { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .tbl-btn { background: none; border: 1px solid var(--link); border-radius: 100em; padding: 3px 14px; font-size: 13px; font-weight: 600; color: var(--link); cursor: pointer; white-space: nowrap; }
+  .tbl-btn:hover { background: var(--band); }
+
+  /* legenda de status */
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-2); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+  /* barras empilhadas 100% (status por origem) */
+  .stack-rows { display: grid; gap: 10px; margin-top: 12px; }
+  .srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; border-radius: 6px; padding: 2px 4px; margin: -2px -4px; cursor: pointer; }
+  .srow:hover, .srow:focus-visible { background: var(--band); outline: none; }
+  .srow.dim { opacity: .45; }
+  .srow .lab { font-size: 13px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .srow .tot { font-size: 13px; font-variant-numeric: tabular-nums; }
+  .stack { grid-column: 1 / -1; display: flex; gap: 2px; height: 14px; }
+  .stack i { display: block; height: 100%; min-width: 2px; }
+  .stack i:first-child { border-radius: 4px 0 0 4px; } .stack i:last-child { border-radius: 0 4px 4px 0; }
+
+  /* colunas empilhadas (prazos por ano) */
+  .cols { display: flex; align-items: flex-end; gap: 3px; height: 220px; border-bottom: 1px solid var(--axis); position: relative; }
+  .col { flex: 1; display: flex; flex-direction: column-reverse; gap: 1px; height: 100%; justify-content: flex-start; cursor: pointer; min-width: 0; }
+  .col i { display: block; width: 100%; }
+  .col i:last-child { border-radius: 3px 3px 0 0; }
+  .col:hover { background: var(--band); }
+  .col.dim { opacity: .4; }
+  .col.today { box-shadow: inset 0 0 0 1px var(--link); }
+  .xlab { display: flex; gap: 3px; margin-top: 4px; }
+  .xlab span { flex: 1; text-align: center; font-size: 10.5px; color: var(--muted); min-width: 0; overflow: hidden; }
+
+  /* barras simples */
+  .bars { display: grid; gap: 8px; }
+  .bar-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; border-radius: 6px; padding: 2px 4px; margin: -2px -4px; }
+  .bar-row.click { cursor: pointer; }
+  .bar-row.click:hover, .bar-row:focus-visible { background: var(--band); outline: none; }
+  .bar-label { font-size: 13px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-val { font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; }
+  .bar-track { grid-column: 1 / -1; height: 12px; margin-top: 3px; position: relative; }
+  .bar { position: absolute; top: 0; bottom: 0; left: 0; background: var(--series-1); border-radius: 0 4px 4px 0; min-width: 2px; }
+  .bar.dim { background: var(--dim); }
+
+  /* mapa em grade */
+  .tilemap { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; max-width: 400px; margin: 0 auto; }
+  .uf { aspect-ratio: 1.15; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; cursor: pointer; border: 2px solid transparent; }
+  .uf small { font-weight: 500; font-size: 10.5px; }
+  .uf:hover, .uf:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; }
+  .uf.sel { border-color: var(--text); }
+
+  /* municípios */
+  .mgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 14px; align-items: start; }
+  .tablewrap { max-height: 560px; overflow: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { position: sticky; top: 0; background: var(--surface); text-align: left; font-size: 12px; color: var(--text-2); padding: 8px 10px; border-bottom: 1px solid var(--border); font-weight: 700; z-index: 1; }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr.click { cursor: pointer; }
+  tbody tr.click:hover { background: var(--band); }
+  tbody tr.sel { background: var(--band); box-shadow: inset 3px 0 0 var(--link); }
+  .muf { color: var(--muted); font-size: 12px; }
+  .more { display: block; margin: 10px auto 2px; }
+  .more[hidden] { display: none; }
+  .detail { position: sticky; top: 90px; max-height: calc(100vh - 110px); overflow: auto; }
+  .detail .empty { color: var(--muted); padding: 40px 10px; text-align: center; }
+  .facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
+  .fact { background: var(--surface-2); border-radius: 8px; padding: 8px 10px; }
+  .fact .l { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+  .fact .v { font-weight: 700; font-size: 17px; color: var(--heading); }
+  .ob { border: 1px solid var(--border); border-left-width: 4px; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  .ob .row1 { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: space-between; }
+  .ob .txt { margin: 6px 0 4px; font-size: 13.5px; }
+  .ob .foot { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); }
+  .tag { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 100em; background: var(--chip-bg); color: var(--link); }
+  .pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 100em; white-space: nowrap; }
+  .pill svg { width: 11px; height: 11px; }
+
+  #tip { position: fixed; pointer-events: none; z-index: 50; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); opacity: 0; transition: opacity .1s; max-width: 300px; }
+  #tip b { display: block; font-size: 13px; margin-bottom: 2px; }
+  #tip span { color: var(--text-2); }
+  .tbl-wrap { max-height: 360px; overflow: auto; }
+
+  footer { color: var(--muted); font-size: 12.5px; padding: 20px 0 40px; border-top: 1px solid var(--border); }
+  footer p { margin-bottom: 6px; max-width: 980px; }
+  footer a { color: var(--link); }
+
+  @media (max-width: 1000px) { .kpis { grid-template-columns: repeat(3, 1fr); } .grid, .mgrid { grid-template-columns: 1fr; } .detail { position: static; max-height: none; } }
+  @media (max-width: 560px) {
+    .wrap { padding: 0 16px; } .kpis { grid-template-columns: 1fr 1fr; } .tile .val { font-size: 22px; }
+    .f { flex: 1 1 calc(50% - 10px); min-width: 0; } .facts { grid-template-columns: 1fr 1fr; } .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="top">
+      <a href="https://github.com/Maatths">← GitHub de Matheus Oliveira</a>
+      <button class="pill-btn" id="theme" type="button" aria-label="Alternar tema claro/escuro">◐ Tema</button>
+    </div>
+    <span class="tag-proj">Projeto independente · dados abertos da Anatel</span>
+    <h1>Compromissos Regulatórios · Telefônica Vivo</h1>
+    <p class="sub" id="sub">Obrigações de cobertura e infraestrutura da Telefônica Brasil (Vivo) em editais, termos e programas acompanhados pela Anatel, por município, com prazos e status atualizados em relação à data de hoje.</p>
+  </div>
+</header>
+
+<div class="filters" role="region" aria-label="Filtros">
+  <div class="wrap">
+    <div class="f search"><label for="q">Município</label><input id="q" type="search" placeholder="Nome ou código IBGE" autocomplete="off"></div>
+    <div class="f"><label for="fNiv">Nível</label><select id="fNiv"></select></div>
+    <div class="f"><label for="fOrig">Origem</label><select id="fOrig"></select></div>
+    <div class="f"><label for="fTipo">Tipo</label><select id="fTipo"></select></div>
+    <div class="f"><label for="fTec">Tecnologia</label><select id="fTec"></select></div>
+    <div class="f"><label for="fSt">Status</label><select id="fSt"></select></div>
+    <div class="f"><label for="fUf">UF</label><select id="fUf"></select></div>
+    <button class="clear" id="clear" type="button">Limpar</button>
+  </div>
+</div>
+
+<main>
+  <div class="wrap">
+    <p class="headline" id="headline" aria-live="polite"></p>
+    <section class="kpis" id="kpis" aria-label="Indicadores"></section>
+
+    <section class="grid">
+      <article class="card full" data-card="orig">
+        <div class="card-head"><div><h2>Situação por origem</h2><p class="desc">Divisão por status de cada edital, termo ou programa · clique para filtrar</p></div><button class="tbl-btn" type="button">Tabela</button></div>
+        <div class="legend" data-legend></div>
+        <div class="body" id="cOrig"></div>
+      </article>
+
+      <article class="card full" data-card="ano">
+        <div class="card-head"><div><h2>Prazos por ano</h2><p class="desc">Ano do prazo máximo, por status · o contorno marca o ano atual · clique para filtrar</p></div><button class="tbl-btn" type="button">Tabela</button></div>
+        <div class="body" id="cAno"></div>
+      </article>
+
+      <article class="card" data-card="niv">
+        <div class="card-head"><div><h2>Nível da obrigação</h2><p class="desc">Onde o compromisso precisa ser atendido · clique para filtrar</p></div><button class="tbl-btn" type="button">Tabela</button></div>
+        <div class="body" id="cNiv"></div>
+      </article>
+
+      <article class="card" data-card="uf">
+        <div class="card-head"><div><h2>Compromissos por UF</h2><p class="desc">Cor por faixa de quantidade · clique para filtrar</p></div><button class="tbl-btn" type="button">Tabela</button></div>
+        <div class="body" id="cUf"></div>
+      </article>
+
+      <article class="card" data-card="tipo">
+        <div class="card-head"><div><h2>Tipo de compromisso</h2><p class="desc">Clique para filtrar</p></div><button class="tbl-btn" type="button">Tabela</button></div>
+        <div class="body" id="cTipo"></div>
+      </article>
+
+      <article class="card" data-card="tec">
+        <div class="card-head"><div><h2>Tecnologia exigida</h2><p class="desc">Para compromissos de telefonia móvel (SMP) · clique para filtrar</p></div><button class="tbl-btn" type="button">Tabela</button></div>
+        <div class="body" id="cTec"></div>
+      </article>
+    </section>
+
+    <section class="mgrid">
+      <article class="card">
+        <div class="card-head"><div><h2>Municípios</h2><p class="desc" id="mCount"></p></div>
+          <label class="desc" style="display:flex;gap:6px;align-items:center">Ordenar
+            <select id="mSort" style="height:30px;border:1px solid #888;border-radius:6px;background:var(--surface);padding:0 6px">
+              <option value="total">Mais compromissos</option>
+              <option value="pend">Mais pendências</option>
+              <option value="prazo">Próximo prazo</option>
+              <option value="nome">Nome (A–Z)</option>
+            </select></label>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Município</th><th class="n">Total</th><th class="n">Atendidos</th><th class="n hide-sm">Pendentes</th><th class="hide-sm">Próximo prazo</th></tr></thead>
+            <tbody id="mBody"></tbody>
+          </table>
+        </div>
+        <button class="pill-btn more" id="mMore" type="button" hidden>Mostrar mais</button>
+      </article>
+      <aside class="card detail" id="detail" aria-live="polite"></aside>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p><b>Fonte:</b> <a href="https://www.gov.br/anatel/pt-br/dados/dados-abertos" target="_blank" rel="noopener">Anatel, Dados Abertos</a>, Painel de Acompanhamento e Controle: Compromissos de Investimento (<i>compromissos_investimento.zip</i>). <span id="fonteData"></span></p>
+    <p><b>Notas:</b> o status "Vencido" é calculado pelo painel: são compromissos marcados como "A vencer" cujo prazo máximo já passou em relação à data de hoje, o que pode indicar atraso na atualização da base. Foram mantidos só os registros da Telefônica Brasil S.A. (com as variações de grafia do nome na base), e origens com poucos registros entraram em "Outros programas".</p>
+    <p>Versão demonstrativa, com dados públicos, de um painel de acompanhamento regulatório desenvolvido por <a href="https://www.linkedin.com/in/matheus-oliveira-06b0b5162" target="_blank" rel="noopener">Matheus Oliveira</a>. Projeto independente: não é um produto oficial da Vivo, da Telefônica Brasil nem da Anatel, e não usa nenhuma informação interna.</p>
+  </div>
+</footer>
+
+<div id="tip" role="status"></div>
+
+<script src="dados.js"></script>
+<script>
+(() => {
+  const D = window.DADOS;
+  const fmt = new Intl.NumberFormat('pt-BR');
+  const pl = (n, um, varios) => fmt.format(n) + ' ' + (n === 1 ? um : varios);
+  const pct = v =>(v * 100).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const DAY = 864e5, D0 = Date.UTC(2000, 0, 1);
+  const hoje = new Date(); const hojeDias = Math.floor((Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()) - D0) / DAY);
+  const dataDe = d => { const x = new Date(D0 + d * DAY); return x.toLocaleDateString('pt-BR', { timeZone: 'UTC' }); };
+  const anoDe = d => new Date(D0 + d * DAY).getUTCFullYear();
+
+  // ---------- Status (com "Vencido" calculado) ----------
+  const ST = [
+    { k: 'Atendido', c: 'ok', icon: 'M2.5 6.2l2.2 2.2 4.8-5' },
+    { k: 'Em apuração', c: 'info', icon: 'M5.2 2a3.2 3.2 0 1 1 0 6.4 3.2 3.2 0 0 1 0-6.4zM7.6 7.6l2.9 2.9' },
+    { k: 'A vencer', c: 'warn', icon: 'M6 1.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9zM6 3.5V6l1.8 1.2' },
+    { k: 'Vencido', c: 'crit', icon: 'M6 2.5v4.2M6 9.3v.1' },
+    { k: 'Não atendido', c: 'crit2', icon: 'M3 3l6 6M9 3l-6 6' },
+    { k: 'Reservado', c: 'gray', icon: 'M3 6h6' }
+  ];
+  const stColor = i => `var(--st-${ST[i].c})`;
+  const stBg = i => `var(--st-${ST[i].c === 'crit2' ? 'crit' : ST[i].c}-bg)`;
+  const pill = i => `<span class="pill" style="background:${stBg(i)};color:${stColor(i)}"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="${ST[i].icon}"/></svg>${ST[i].k}</span>`;
+  const ST_OF = D.st.map(s => Math.max(0, ST.findIndex(x => x.k === s)));
+  const iVenc = 3, iAv = 2;
+
+  // ---------- Linhas enriquecidas ----------
+  const UFS = [...new Set(D.mun.map(m => m[2]).filter(u => u && u !== '-'))].sort();
+  const munUf = D.mun.map(m => UFS.indexOf(m[2]));
+  const munNorm = D.mun.map(m => norm(m[1]) + ' ' + m[0]);
+  const R = D.rows.map(r => {
+    let s = ST_OF[r[6]];
+    if (s === iAv && r[8] >= 0 && r[8] < hojeDias) s = iVenc;
+    return { m: r[0], op: r[1], orig: r[2], tipo: r[3], niv: r[4], tec: r[5], st: s, comp: r[7], pz: r[8], ano: r[8] >= 0 ? anoDe(r[8]) : null, uf: munUf[r[0]] };
+  });
+
+  // ---------- Filtros ----------
+  const F = { q: '', niv: '', orig: '', tipo: '', tec: '', st: '', uf: '', ano: '' };
+  const byCount = (key, labels) => { const c = new Array(labels.length).fill(0); R.forEach(r => c[r[key]]++); return labels.map((l, i) => [String(i), l, c[i]]).filter(x => x[2] > 0).sort((a, b) => b[2] - a[2]); };
+  const OPTS = {
+    fNiv: ['niv', [['', 'Todos'], ...byCount('niv', D.nivel).map(x => [x[0], x[1]])]],
+    fOrig: ['orig', [['', 'Todas'], ...byCount('orig', D.orig).map(x => [x[0], x[1]])]],
+    fTipo: ['tipo', [['', 'Todos'], ...byCount('tipo', D.tipo).map(x => [x[0], x[1]])]],
+    fTec: ['tec', [['', 'Todas'], ...byCount('tec', D.tec).map(x => [x[0], x[1]])]],
+    fSt: ['st', [['', 'Todos'], ...ST.map((s, i) => [String(i), s.k]).filter(([i]) => R.some(r => r.st === +i))]],
+    fUf: ['uf', [['', 'Brasil'], ...UFS.map((u, i) => [String(i), u])]]
+  };
+  for (const id in OPTS) {
+    const [key, opts] = OPTS[id], el = document.getElementById(id);
+    el.innerHTML = opts.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join('');
+    el.addEventListener('change', () => { F[key] = el.value; render(); });
+  }
+  let qt; document.getElementById('q').addEventListener('input', e => { clearTimeout(qt); qt = setTimeout(() => { F.q = norm(e.target.value.trim()); render(); }, 200); });
+  document.getElementById('clear').addEventListener('click', () => { for (const k in F) F[k] = ''; document.getElementById('q').value = ''; sel = null; render(); });
+  const toggle = (k, v) => { F[k] = F[k] === String(v) ? '' : String(v); render(); };
+  function passa(r, ign = {}) {
+    if (!ign.niv && F.niv !== '' && r.niv !== +F.niv) return false;
+    if (!ign.orig && F.orig !== '' && r.orig !== +F.orig) return false;
+    if (!ign.tipo && F.tipo !== '' && r.tipo !== +F.tipo) return false;
+    if (!ign.tec && F.tec !== '' && r.tec !== +F.tec) return false;
+    if (!ign.st && F.st !== '' && r.st !== +F.st) return false;
+    if (!ign.uf && F.uf !== '' && r.uf !== +F.uf) return false;
+    if (!ign.ano && F.ano !== '' && String(r.ano ?? 'sem') !== F.ano) return false;
+    if (F.q && !munNorm[r.m].includes(F.q)) return false;
+    return true;
+  }
+
+  // ---------- Tooltip e tabelas ----------
+  const tip = document.getElementById('tip');
+  function showTip(html, x, y) {
+    tip.innerHTML = html; tip.style.opacity = 1;
+    const w = tip.offsetWidth, h = tip.offsetHeight; let l = x + 14, t = y + 14;
+    if (l + w > innerWidth - 8) l = x - w - 14; if (t + h > innerHeight - 8) t = y - h - 14;
+    tip.style.left = Math.max(8, l) + 'px'; tip.style.top = Math.max(8, t) + 'px';
+  }
+  const hideTip = () => { tip.style.opacity = 0; };
+  const tableMode = {};
+  document.querySelectorAll('.card[data-card]').forEach(card => card.querySelector('.tbl-btn').addEventListener('click', e => {
+    const k = card.dataset.card; tableMode[k] = !tableMode[k]; e.target.textContent = tableMode[k] ? 'Gráfico' : 'Tabela'; render();
+  }));
+  const tableHtml = (cols, rows) => `<div class="tbl-wrap"><table><thead><tr>${cols.map((c, i) => `<th class="${i ? 'n' : ''}">${esc(c)}</th>`).join('')}</tr></thead><tbody>` +
+    rows.map(r => `<tr>${r.map((v, i) => `<td class="${i ? 'n' : ''}">${esc(v)}</td>`).join('')}</tr>`).join('') + '</tbody></table></div>';
+  function wire(el, sel, items, onClick) {
+    el.querySelectorAll(sel).forEach(node => {
+      const d = items[+node.dataset.i];
+      node.addEventListener('mousemove', e => showTip(d.tip, e.clientX, e.clientY));
+      node.addEventListener('mouseleave', hideTip);
+      if (onClick) {
+        node.addEventListener('click', () => { hideTip(); onClick(d); });
+        node.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(d); } });
+      }
+    });
+  }
+  const stTip = (title, counts) => { const t = counts.reduce((a, b) => a + b, 0); return `<b>${esc(title)}</b>${fmt.format(t)} compromissos` + counts.map((c, i) => c ? `<br><span>${ST[i].k}: ${fmt.format(c)} (${pct(c / t)})</span>` : '').join(''); };
+  const stPresentes = new Set(R.map(r => r.st));
+  document.querySelectorAll('[data-legend]').forEach(el => { el.innerHTML = ST.map((s, i) => stPresentes.has(i) ? `<span><i class="sw" style="background:${stColor(i)}"></i>${s.k}</span>` : '').join(''); });
+
+  function bars(el, key, items, onClick) {
+    const max = Math.max(...items.map(d => d.v), 1);
+    el.innerHTML = `<div class="bars">${items.map((d, i) => `<div class="bar-row${onClick ? ' click' : ''}" data-i="${i}" ${onClick ? 'tabindex="0" role="button"' : ''} aria-label="${esc(d.label)}: ${fmt.format(d.v)}">
+      <div class="bar-label">${esc(d.label)}</div><div class="bar-val">${esc(d.text)}</div>
+      <div class="bar-track"><div class="bar${d.dim ? ' dim' : ''}" style="width:${(d.v / max * 100).toFixed(2)}%"></div></div></div>`).join('')}</div>`;
+    wire(el, '.bar-row', items, onClick);
+  }
+
+  // ---------- Mapa em grade ----------
+  const POS = { RR: [2, 0], AP: [3, 0], AM: [1, 1], PA: [2, 1], MA: [3, 1], CE: [4, 1], RN: [5, 1], AC: [0, 2], RO: [1, 2], TO: [2, 2], PI: [3, 2], PE: [4, 2], PB: [5, 2],
+    MT: [1, 3], GO: [2, 3], BA: [3, 3], SE: [4, 3], AL: [5, 3], MS: [1, 4], DF: [2, 4], MG: [3, 4], ES: [4, 4], PR: [1, 5], SP: [2, 5], RJ: [3, 5], SC: [1, 6], RS: [1, 7] };
+
+  // ---------- Municípios ----------
+  let sel = null, mLimit = 50;
+  document.getElementById('mSort').addEventListener('change', () => { mLimit = 50; render(); });
+  document.getElementById('mMore').addEventListener('click', () => { mLimit += 100; render(); });
+
+  // ---------- Render ----------
+  function render() {
+    for (const id in OPTS) document.getElementById(id).value = F[OPTS[id][0]];
+    const nS = ST.length, z = () => new Array(nS).fill(0);
+    const rows = R.filter(r => passa(r));
+    const tot = rows.length;
+    const cnt = z(); rows.forEach(r => cnt[r.st]++);
+    const prox12 = rows.filter(r => r.st === iAv && r.pz >= hojeDias && r.pz < hojeDias + 365).length;
+    const munSet = new Set(rows.map(r => r.m));
+
+    // KPIs
+    const k = [
+      ['', 'Compromissos', fmt.format(tot), pl(munSet.size, 'município', 'municípios')],
+      ['ok', ST[0].k, tot ? pct(cnt[0] / tot) : '—', `${fmt.format(cnt[0])} compromissos`],
+      ['warn', 'Vencem em 12 meses', fmt.format(prox12), `de ${fmt.format(cnt[iAv])} a vencer`],
+      ['crit', 'Vencidos', fmt.format(cnt[iVenc] + cnt[4]), 'prazo passado sem atendimento registrado'],
+      ['info', ST[1].k, fmt.format(cnt[1]), 'aguardando verificação da Anatel']
+    ];
+    document.getElementById('kpis').innerHTML = k.map(([c, l, v, n]) => `<div class="tile ${c}"><div class="lbl">${esc(l)}</div><div class="val">${v}</div><div class="note">${esc(n)}</div></div>`).join('');
+
+    // Headline
+    const recorte = [F.niv !== '' ? 'nível ' + D.nivel[+F.niv].toLowerCase() : null,F.orig !== '' ? D.orig[+F.orig] : null, F.uf !== '' ? UFS[+F.uf] : null, F.ano !== '' ? (F.ano === 'sem' ? 'sem prazo' : 'prazo em ' + F.ano) : null].filter(Boolean);
+    document.getElementById('headline').innerHTML = tot === 0 ? 'Nenhum compromisso no recorte selecionado.' :
+      `${recorte.length ? esc(recorte.join(' · ')) + ': ' : ''}${pl(tot, 'compromisso', 'compromissos')} em ${pl(munSet.size, 'município', 'municípios')}. ${pct(cnt[0] / tot)} já foram atendidos` +
+      (prox12 ? `, ${fmt.format(prox12)} ${prox12 === 1 ? 'vence' : 'vencem'} nos próximos 12 meses` : ' e nenhum vence nos próximos 12 meses') +
+      (cnt[iVenc] ? ` e ${pl(cnt[iVenc], 'está', 'estão')} com prazo vencido sem atendimento registrado.` : '.');
+
+    // Situação por origem (ignora filtro de origem para manter o contexto)
+    const oc = D.orig.map(() => z()); R.forEach(r => { if (passa(r, { orig: 1 })) oc[r.orig][r.st]++; });
+    const itO = D.orig.map((l, i) => ({ i, label: l, c: oc[i], t: oc[i].reduce((a, b) => a + b, 0) })).filter(d => d.t).sort((a, b) => b.t - a.t)
+      .map(d => ({ ...d, tip: stTip(d.label, d.c), dim: F.orig !== '' && +F.orig !== d.i }));
+    const elO = document.getElementById('cOrig');
+    if (tableMode.orig) elO.innerHTML = tableHtml(['Origem', 'Total', ...ST.map(s => s.k)], itO.map(d => [d.label, fmt.format(d.t), ...d.c.map(v => fmt.format(v))]));
+    else {
+      elO.innerHTML = `<div class="stack-rows">${itO.map((d, i) => `<div class="srow${d.dim ? ' dim' : ''}" data-i="${i}" tabindex="0" role="button" aria-label="${esc(d.label)}">
+        <div class="lab">${esc(d.label)}</div><div class="tot">${fmt.format(d.t)} · ${pct(d.c[0] / d.t)} atendidos</div>
+        <div class="stack">${d.c.map((v, s) => v ? `<i style="flex:${v};background:${stColor(s)}"></i>` : '').join('')}</div></div>`).join('')}</div>`;
+      wire(elO, '.srow', itO, d => toggle('orig', d.i));
+    }
+
+    // Prazos por ano (ignora filtro de ano)
+    const anos = {}; R.forEach(r => { if (!passa(r, { ano: 1 })) return; const a = r.ano ?? 'sem'; (anos[a] = anos[a] || z())[r.st]++; });
+    const chaves = Object.keys(anos).filter(a => a !== 'sem').map(Number).sort((a, b) => a - b).map(String);
+    if (anos.sem) chaves.push('sem');
+    const itA = chaves.map(a => ({ a, c: anos[a], t: anos[a].reduce((x, y) => x + y, 0) })).map(d => ({ ...d, tip: stTip(d.a === 'sem' ? 'Sem prazo definido' : 'Prazo em ' + d.a, d.c) }));
+    const maxA = Math.max(...itA.map(d => d.t), 1);
+    const elA = document.getElementById('cAno');
+    if (tableMode.ano) elA.innerHTML = tableHtml(['Ano', 'Total', ...ST.map(s => s.k)], itA.map(d => [d.a === 'sem' ? 'Sem prazo' : d.a, fmt.format(d.t), ...d.c.map(v => fmt.format(v))]));
+    else {
+      elA.innerHTML = `<div class="cols">${itA.map((d, i) => `<div class="col${F.ano !== '' && F.ano !== d.a ? ' dim' : ''}${+d.a === hoje.getFullYear() ? ' today' : ''}" data-i="${i}" tabindex="0" role="button" aria-label="${d.a}: ${d.t}">
+        ${d.c.map((v, s) => v ? `<i style="height:${(v / maxA * 100).toFixed(2)}%;background:${stColor(s)}"></i>` : '').join('')}</div>`).join('')}</div>
+        <div class="xlab">${itA.map(d => `<span>${d.a === 'sem' ? 's/p' : "'" + d.a.slice(2)}</span>`).join('')}</div>`;
+      wire(elA, '.col', itA, d => toggle('ano', d.a));
+    }
+
+    // Operadoras, tipos, tecnologia, UF
+    const agg = (key, n, ign) => { const c = new Array(n).fill(0); R.forEach(r => { if (passa(r, ign)) c[r[key]]++; }); return c; };
+    const simple = (id, card, key, labels, title) => {
+      const c = agg(key, labels.length, { [key]: 1 }); const t = c.reduce((a, b) => a + b, 0);
+      const it = labels.map((l, i) => ({ i, label: l, v: c[i] })).filter(d => d.v).sort((a, b) => b.v - a.v)
+        .map(d => ({ ...d, text: fmt.format(d.v), dim: F[key] !== '' && +F[key] !== d.i, tip: `<b>${esc(d.label)}</b>${fmt.format(d.v)} compromissos<br><span>${pct(d.v / t)} do total</span>` }));
+      const el = document.getElementById(id);
+      if (tableMode[card]) el.innerHTML = tableHtml([title, 'Compromissos', '% do total'], it.map(d => [d.label, fmt.format(d.v), pct(d.v / t)]));
+      else bars(el, key, it, d => toggle(key, d.i));
+    };
+    simple('cNiv', 'niv', 'niv', D.nivel, 'Nível');
+    simple('cTipo', 'tipo', 'tipo', D.tipo, 'Tipo');
+    simple('cTec', 'tec', 'tec', D.tec, 'Tecnologia');
+
+    const cu = new Array(UFS.length).fill(0), cuOk = new Array(UFS.length).fill(0);
+    R.forEach(r => { if (r.uf >= 0 && passa(r, { uf: 1 })) { cu[r.uf]++; if (r.st === 0) cuOk[r.uf]++; } });
+    const elU = document.getElementById('cUf');
+    if (tableMode.uf) elU.innerHTML = tableHtml(['UF', 'Compromissos', '% atendidos'], UFS.map((u, i) => [u, cu[i], i]).sort((a, b) => b[1] - a[1]).map(([u, v, i]) => [u, fmt.format(v), v ? pct(cuOk[i] / v) : '—']));
+    else {
+      const ramp = getComputedStyle(document.documentElement).getPropertyValue('--seq').split(',').map(s => s.trim());
+      const cls = [0, 1, 2, 3, 4].map(i => ({ bg: ramp[i], fg: i >= 2 ? '#ffffff' : '#2b0a40' }));
+      const s = cu.filter(v => v > 0).sort((a, b) => a - b); const cortes = [1, 2, 3, 4].map(q => s[Math.floor(q / 5 * s.length)] || 0);
+      const classe = v => { let k = 0; while (k < cortes.length && v >= cortes[k]) k++; return k; };
+      const items = [];
+      let html = '<div class="tilemap" role="group" aria-label="Mapa de compromissos por UF">';
+      for (const [uf, [c, r]] of Object.entries(POS)) {
+        const i = UFS.indexOf(uf), v = i >= 0 ? cu[i] : 0, col = cls[classe(v)];
+        items.push({ i, tip: `<b>${uf}</b>${fmt.format(v)} compromissos<br><span>${v ? pct(cuOk[i] / v) : '—'} atendidos</span>` });
+        html += `<div class="uf${F.uf !== '' && +F.uf === i ? ' sel' : ''}" data-i="${items.length - 1}" style="grid-column:${c + 1};grid-row:${r + 1};background:${col.bg};color:${col.fg}" tabindex="0" role="button" aria-label="${uf}: ${v} compromissos">${uf}<small>${fmt.format(v)}</small></div>`;
+      }
+      html += `</div><div class="legend" style="justify-content:center;margin-top:12px">${cls.map((c, k) => `<span><i class="sw" style="background:${c.bg}"></i>${k === 0 ? '0' : fmt.format(cortes[k - 1])}${k === cls.length - 1 ? '+' : '–' + fmt.format(cortes[k])}</span>`).join('')}</div>`;
+      elU.innerHTML = html;
+      wire(elU, '.uf', items, d => toggle('uf', d.i));
+    }
+
+    // Municípios
+    const mm = new Map();
+    rows.forEach(r => {
+      let o = mm.get(r.m); if (!o) { o = { m: r.m, t: 0, ok: 0, pend: 0, prox: Infinity }; mm.set(r.m, o); }
+      o.t++; if (r.st === 0) o.ok++; if (r.st === 1 || r.st === iAv || r.st === iVenc || r.st === 4) o.pend++;
+      if (r.st === iAv && r.pz >= hojeDias && r.pz < o.prox) o.prox = r.pz;
+    });
+    const ord = document.getElementById('mSort').value;
+    const lista = [...mm.values()].sort((a, b) => ord === 'nome' ? D.mun[a.m][1].localeCompare(D.mun[b.m][1], 'pt-BR') : ord === 'prazo' ? a.prox - b.prox : ord === 'pend' ? b.pend - a.pend : b.t - a.t);
+    document.getElementById('mCount').textContent = `${pl(lista.length, 'município', 'municípios')} no recorte · clique para ver os compromissos`;
+    document.getElementById('mBody').innerHTML = lista.slice(0, mLimit).map(o => `<tr class="click${sel === o.m ? ' sel' : ''}" data-m="${o.m}" tabindex="0">
+      <td><b>${esc(D.mun[o.m][1])}</b> <span class="muf">${esc(D.mun[o.m][2])}</span></td><td class="n">${fmt.format(o.t)}</td><td class="n">${pct(o.ok / o.t)}</td>
+      <td class="n hide-sm">${fmt.format(o.pend)}</td><td class="hide-sm">${o.prox < Infinity ? dataDe(o.prox) : '—'}</td></tr>`).join('');
+    document.getElementById('mMore').hidden = lista.length <= mLimit;
+    document.querySelectorAll('#mBody tr').forEach(tr => {
+      const go = () => { sel = +tr.dataset.m; render(); if (innerWidth < 1000) document.getElementById('detail').scrollIntoView({ behavior: 'smooth' }); };
+      tr.addEventListener('click', go); tr.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+    });
+    if (sel === null && lista.length) sel = lista[0].m;
+    renderDetail(sel !== null && mm.has(sel) ? sel : (lista[0] ? lista[0].m : null), rows);
+  }
+
+  function renderDetail(m, rows) {
+    const el = document.getElementById('detail');
+    if (m === null) { el.innerHTML = '<p class="empty">Nenhum município no recorte.</p>'; return; }
+    const rs = rows.filter(r => r.m === m);
+    const cnt = new Array(ST.length).fill(0); rs.forEach(r => cnt[r.st]++);
+    const origens = new Set(rs.map(r => r.orig));
+    // agrupa compromissos iguais (mesmo texto, operadora, status e prazo)
+    const g = new Map();
+    rs.forEach(r => { const key = [r.comp, r.op, r.st, r.pz, r.orig, r.niv, r.tec].join('|'); const o = g.get(key); if (o) o.n++; else g.set(key, { r, n: 1 }); });
+    const ordSt = [3, 4, 2, 1, 5, 0];
+    const grupos = [...g.values()].sort((a, b) => ordSt.indexOf(a.r.st) - ordSt.indexOf(b.r.st) || (a.r.pz - b.r.pz));
+    const mun = D.mun[m];
+    el.innerHTML = `<div class="card-head"><div><h2 style="font-size:22px">${esc(mun[1])}</h2><p class="desc">${esc(mun[2])} · ${esc(mun[3])} · IBGE ${esc(mun[0])}</p></div></div>
+      <div class="facts">
+        <div class="fact"><div class="l">Compromissos</div><div class="v">${fmt.format(rs.length)}</div></div>
+        <div class="fact"><div class="l">Atendidos</div><div class="v">${pct(cnt[0] / rs.length)}</div></div>
+        <div class="fact"><div class="l">Pendentes</div><div class="v">${fmt.format(cnt[1] + cnt[2] + cnt[3] + cnt[4])}</div></div>
+        <div class="fact"><div class="l">Origens</div><div class="v">${origens.size}</div></div>
+      </div>
+      <div class="legend" style="margin-bottom:10px">${cnt.map((c, i) => c ? pill(i) + ` <b style="margin-right:6px">${fmt.format(c)}</b>` : '').join('')}</div>
+      ${grupos.slice(0, 80).map(({ r, n }) => `<div class="ob" style="border-left-color:${stColor(r.st)}">
+        <div class="row1"><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="tag">${esc(D.orig[r.orig])}</span></div>${pill(r.st)}</div>
+        <p class="txt">${esc(D.comp[r.comp])}</p>
+        <div class="foot"><span><b>Prazo:</b> ${r.pz >= 0 ? dataDe(r.pz) : 'sem prazo'}</span><span><b>Nível:</b> ${esc(D.nivel[r.niv])}${n > 1 ? ` (${n})` : ''}</span>${D.tec[r.tec] !== 'Não se aplica' ? `<span><b>Tecnologia:</b> ${esc(D.tec[r.tec])}</span>` : ''}<span><b>Tipo:</b> ${esc(D.tipo[r.tipo])}</span></div>
+      </div>`).join('')}
+      ${grupos.length > 80 ? `<p class="desc">+${grupos.length - 80} grupos de compromissos. Use os filtros para refinar.</p>` : ''}`;
+  }
+
+  // ---------- Tema ----------
+  try { const t = localStorage.getItem('tema'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  document.getElementById('theme').addEventListener('click', () => {
+    const atual = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.dataset.theme = atual === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem('tema', document.documentElement.dataset.theme); } catch (e) {}
+    render();
+  });
+  document.getElementById('fonteData').textContent = `Base processada em ${new Date(D.geradoEm + 'T12:00').toLocaleDateString('pt-BR')}; status recalculado em ${hoje.toLocaleDateString('pt-BR')}.`;
+  render();
+})();
+</script>
+</body>
+</html>
